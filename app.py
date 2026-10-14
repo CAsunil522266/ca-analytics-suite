@@ -5,6 +5,8 @@ Each tool offers PDF + Excel download after it has been run.
 """
 from __future__ import annotations
 
+import os
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
@@ -19,6 +21,8 @@ from utils import fdate, inr
 st.set_page_config(page_title="CA Analytics Suite", page_icon="📊", layout="wide")
 
 NONE = "- none -"
+# Public deployments (Streamlit Community Cloud, or DEMO_ONLY=1) run on built-in synthetic data only - no uploads.
+DEMO_ONLY = os.environ.get("DEMO_ONLY") == "1" or os.path.exists("/mount/src")
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
@@ -61,6 +65,14 @@ def downloads(prefix, pdf, xlsx, stem):
     c = st.columns(2)
     c[0].download_button("Download PDF report", pdf, f"{stem}.pdf", "application/pdf", key=f"{prefix}_pdf")
     c[1].download_button("Download Excel workbook", xlsx, f"{stem}.xlsx", XLSX, key=f"{prefix}_xlsx")
+
+
+def demo_toggle(key):
+    if DEMO_ONLY:
+        st.info("Public demo: this version runs on built-in synthetic data only and file upload is switched off. "
+                "Run the app on your own computer to use your own files.")
+        return True
+    return st.toggle("Use demo data", value=True, key=key)
 
 
 def txn_mapper(df, label, key, inflow, hint):
@@ -108,7 +120,7 @@ def page_bank():
     meta = {"company": c[0].text_input("Entity", "Demo Industries Pvt Ltd", key="b_co"),
             "account": c[1].text_input("Bank account", "SBI Current A/c xxxx1234", key="b_ac"),
             "period": c[2].text_input("Period", "April 2025", key="b_pe")}
-    demo = st.toggle("Use demo data", value=True, key="b_demo")
+    demo = demo_toggle("b_demo")
     if demo:
         d = sd.bank_vs_books()
         books, bank, ob, ok_ = d["books"], d["bank"], d["opening_books"], d["opening_bank"]
@@ -171,7 +183,7 @@ def page_gst():
     meta = {"company": c[0].text_input("Entity", "Demo Industries Pvt Ltd", key="g_co"),
             "account": c[1].text_input("GSTIN", "20XXXXX0000X1ZX", key="g_ac"),
             "period": c[2].text_input("Tax period", "April 2025", key="g_pe")}
-    demo = st.toggle("Use demo data", value=True, key="g_demo")
+    demo = demo_toggle("g_demo")
     tol = st.number_input("Value tolerance (₹ per tax head)", 0.0, 100.0, 1.0, key="g_tol")
     if demo:
         d = sd.gst_data()
@@ -231,7 +243,7 @@ def page_mis():
     st.caption("Monthly P&L, KPIs, budget variance, cost-spike detection, customer concentration, receivables ageing and a revenue outlook. "
                "Exports to PDF, Excel (with a Power BI-ready fact table).")
     company = st.text_input("Entity", "Demo Industries Pvt Ltd", key="m_co")
-    demo = st.toggle("Use demo data", value=True, key="m_demo")
+    demo = demo_toggle("m_demo")
     if demo:
         d = sd.mis_data()
         ledger, budget, invoices, asof = d["ledger"], d["budget"], d["invoices"], d["asof"]
@@ -335,7 +347,7 @@ def main():
     st.title("CA Analytics Suite")
     st.caption("Reconciliation and MIS automation in Python. Demo data is synthetic.")
     page = st.sidebar.radio("Tool", ["Bank reconciliation", "GSTR-2B vs purchase register", "MIS dashboard"])
-    st.sidebar.info("Run this app locally for client data. Do not upload confidential data to a shared or public deployment.")
+    st.sidebar.info("Public demo - synthetic data only." if DEMO_ONLY else "Run this app locally for client data. Do not upload confidential data to a shared or public deployment.")
     {"Bank reconciliation": page_bank, "GSTR-2B vs purchase register": page_gst, "MIS dashboard": page_mis}[page]()
 
 
